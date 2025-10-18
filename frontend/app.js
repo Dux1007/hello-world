@@ -240,7 +240,13 @@ async function submitHandler(event) {
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}));
-      const detail = errorBody.detail || response.statusText;
+      let detail = errorBody.detail || response.statusText || "请求失败";
+      if (
+        response.status === 429 &&
+        !/频|慢|稍后|IP/.test(detail)
+      ) {
+        detail += "。百度指数提示访问频率过高，请放慢抓取速度、尝试更换网络或稍后再试";
+      }
       throw new Error(detail);
     }
 

@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.models import FetchRequest, FetchResponse
 from app.services.baidu_index import BaiduIndexClient
-from app.services.exceptions import BaiduIndexError
+from app.services.exceptions import BaiduIndexError, BaiduIndexRateLimitError
 from app.utils import aggregate_annual
 
 app = FastAPI(title="Baidu Index Aggregator", version="1.0.0")
@@ -20,7 +20,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = BaiduIndexClient(cookie=os.getenv("BAIDU_COOKIE"))
+def _parse_env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return max(float(raw), 0.0)
+    except ValueError:
+        return default
+
+
+client = BaiduIndexClient(
+    cookie=os.getenv("BAIDU_COOKIE"),
+    throttle_seconds=_parse_env_float("BAIDU_THROTTLE_SECONDS", 1.25),
+    jitter_seconds=_parse_env_float("BAIDU_THROTTLE_JITTER", 0.75),
+)
 
 
 @app.post("/api/fetch", response_model=FetchResponse)
@@ -38,6 +52,8 @@ def fetch_indices(request: FetchRequest) -> FetchResponse:
             index_types=request.index_types,
             cookie_override=cookie,
         )
+    except BaiduIndexRateLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except BaiduIndexError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

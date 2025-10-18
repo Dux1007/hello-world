@@ -8,9 +8,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
-import requests
+import random
+import time
 
-from .exceptions import BaiduIndexError
+import requests
+from requests import Response
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from .exceptions import BaiduIndexError, BaiduIndexRateLimitError
 
 
 class IndexType(str, Enum):
@@ -45,15 +51,28 @@ class BaiduIndexClient:
     NEWS_ENDPOINT = "https://index.baidu.com/api/NewsApi/getNewsIndex"
     PTBK_ENDPOINT = "https://index.baidu.com/Interface/ptbk"
 
+    RATE_LIMIT_KEYWORDS = ("异常访问", "访问频次过高", "异常访问行为", "访问行为异常")
+
     def __init__(
         self,
         *,
         cookie: str | None = None,
         session: Optional[requests.Session] = None,
         city_map_path: str | os.PathLike[str] | None = None,
+        throttle_seconds: float = 1.25,
+        jitter_seconds: float = 0.75,
     ) -> None:
         self.cookie = cookie
         self.session = session or requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods={"GET"},
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
         self.session.headers.update(
             {
                 "User-Agent": (
@@ -63,11 +82,14 @@ class BaiduIndexClient:
                 ),
                 "Referer": "https://index.baidu.com/v2/main/index.html",
                 "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "zh-CN,zh;q=0.9",
                 "Connection": "keep-alive",
             }
         )
         map_path = city_map_path or Path(__file__).resolve().parent.parent / "data" / "cities.json"
         self.city_codes: Dict[str, int] = self._load_city_codes(map_path)
+        self.throttle_seconds = max(throttle_seconds, 0.0)
+        self.jitter_seconds = max(jitter_seconds, 0.0)
 
     @staticmethod
     def _load_city_codes(path: Path) -> Dict[str, int]:
@@ -195,26 +217,21 @@ class BaiduIndexClient:
         end_date: date,
         cookie: str,
     ) -> tuple[str, str]:
+        self._sleep_before_request()
         params = {
             "word": json.dumps([[{"name": keyword, "word": keyword}]], ensure_ascii=False),
             "area": city_code,
             "startDate": start_date.strftime("%Y-%m-%d"),
             "endDate": end_date.strftime("%Y-%m-%d"),
         }
-        response = self.session.get(
+        response = self._safe_get(
             self.SEARCH_ENDPOINT,
             params=params,
-            headers={"Cookie": cookie, **self.session.headers},
-            timeout=30,
+            cookie=cookie,
+            context="search index",
         )
-        if response.status_code != 200:
-            raise BaiduIndexError(
-                f"Failed to fetch search index (status {response.status_code}).",
-                status_code=response.status_code,
-            )
-        payload = response.json()
-        if payload.get("status") != 0:
-            raise BaiduIndexError(payload.get("message", "Unknown search index error."))
+        payload = self._parse_json(response, context="search index")
+        self._validate_payload_status(payload, context="search index")
         data = payload.get("data") or {}
         user_indexes = data.get("userIndexes") or []
         if not user_indexes:
@@ -234,26 +251,21 @@ class BaiduIndexClient:
         end_date: date,
         cookie: str,
     ) -> tuple[str, str]:
+        self._sleep_before_request()
         params = {
             "word": json.dumps([[keyword]], ensure_ascii=False),
             "area": city_code,
             "startDate": start_date.strftime("%Y-%m-%d"),
             "endDate": end_date.strftime("%Y-%m-%d"),
         }
-        response = self.session.get(
+        response = self._safe_get(
             self.NEWS_ENDPOINT,
             params=params,
-            headers={"Cookie": cookie, **self.session.headers},
-            timeout=30,
+            cookie=cookie,
+            context="news index",
         )
-        if response.status_code != 200:
-            raise BaiduIndexError(
-                f"Failed to fetch news index (status {response.status_code}).",
-                status_code=response.status_code,
-            )
-        payload = response.json()
-        if payload.get("status") != 0:
-            raise BaiduIndexError(payload.get("message", "Unknown news index error."))
+        payload = self._parse_json(response, context="news index")
+        self._validate_payload_status(payload, context="news index")
         data = payload.get("data") or {}
         result = data.get("result") or []
         if not result:
@@ -265,18 +277,15 @@ class BaiduIndexClient:
         return encrypted, uniqid
 
     def _fetch_ptbk(self, *, uniqid: str, cookie: str) -> str:
-        response = self.session.get(
+        self._sleep_before_request()
+        response = self._safe_get(
             self.PTBK_ENDPOINT,
             params={"uniqid": uniqid},
-            headers={"Cookie": cookie, **self.session.headers},
-            timeout=30,
+            cookie=cookie,
+            context="ptbk",
         )
-        if response.status_code != 200:
-            raise BaiduIndexError(
-                f"Failed to fetch ptbk (status {response.status_code}).",
-                status_code=response.status_code,
-            )
-        payload = response.json()
+        payload = self._parse_json(response, context="ptbk")
+        self._validate_payload_status(payload, context="ptbk")
         ptbk = payload.get("data")
         if not ptbk:
             raise BaiduIndexError("ptbk payload missing data field")
@@ -320,3 +329,60 @@ class BaiduIndexClient:
             if current > end_date:
                 break
         return points
+
+    # Networking helpers --------------------------------------------------------
+    def _sleep_before_request(self) -> None:
+        if self.throttle_seconds <= 0 and self.jitter_seconds <= 0:
+            return
+        base = self.throttle_seconds
+        jitter = random.random() * self.jitter_seconds if self.jitter_seconds > 0 else 0.0
+        time.sleep(base + jitter)
+
+    def _safe_get(
+        self,
+        url: str,
+        *,
+        params: Dict[str, object],
+        cookie: str,
+        context: str,
+    ) -> Response:
+        try:
+            response = self.session.get(
+                url,
+                params=params,
+                headers={**self.session.headers, "Cookie": cookie},
+                timeout=30,
+            )
+        except requests.RequestException as exc:  # pragma: no cover - network failure
+            raise BaiduIndexError(f"Network error while fetching {context}: {exc}") from exc
+        self._raise_for_http_status(response, context=context)
+        return response
+
+    def _raise_for_http_status(self, response: Response, *, context: str) -> None:
+        if response.status_code == 429:
+            raise BaiduIndexRateLimitError(
+                "百度指数返回 429（请求过于频繁）。请放慢抓取速度、尝试更换网络或稍后再试。"
+            )
+        if response.status_code != 200:
+            raise BaiduIndexError(
+                f"Failed to fetch {context} (status {response.status_code}).",
+                status_code=response.status_code,
+            )
+
+    def _parse_json(self, response: Response, *, context: str) -> Dict[str, object]:
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise BaiduIndexError(f"Failed to parse {context} response as JSON.") from exc
+
+    def _validate_payload_status(self, payload: Dict[str, object], *, context: str) -> None:
+        status = payload.get("status")
+        if status in (0, "0", None):
+            return
+        message = payload.get("message") or payload.get("msg") or payload.get("error")
+        normalized = str(message or f"Unknown {context} error.")
+        if any(keyword in normalized for keyword in self.RATE_LIMIT_KEYWORDS):
+            raise BaiduIndexRateLimitError(
+                "百度指数提示访问频率异常，请减慢抓取速度、尝试更换 IP 或稍后再试。原始信息：" + normalized
+            )
+        raise BaiduIndexError(f"{context.capitalize()} request failed: {normalized}")
