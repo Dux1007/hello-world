@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>百度指数采集面板</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>百度搜索/资讯指数采集与年度汇总</h1>
+      <p>
+        输入关键词、城市以及时间区间，系统会自动抓取百度搜索指数和资讯指数日度数据，并给出年度汇总结果。
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <h2>参数设置</h2>
+        <form id="fetch-form">
+          <div class="form-row">
+            <label for="keywords">关键词（每行一个）</label>
+            <textarea id="keywords" name="keywords" rows="3" placeholder="新能源车\n人工智能" required></textarea>
+          </div>
+          <div class="form-row">
+            <label for="cities">城市（每行一个，可直接输入百度地区编码）</label>
+            <textarea id="cities" name="cities" rows="3" placeholder="北京\n上海\n深圳" required></textarea>
+            <p class="help-text">城市映射可在 <code>app/data/cities.json</code> 中维护。</p>
+          </div>
+          <div class="form-row inline">
+            <label for="start-date">开始日期</label>
+            <input id="start-date" name="start-date" type="date" required />
+            <label for="end-date">结束日期</label>
+            <input id="end-date" name="end-date" type="date" required />
+          </div>
+          <fieldset class="form-row">
+            <legend>选择指数类型</legend>
+            <label class="checkbox">
+              <input type="checkbox" name="index-type" value="search" checked /> 搜索指数
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="index-type" value="news" checked /> 资讯指数
+            </label>
+          </fieldset>
+          <div class="form-row">
+            <label for="cookie">Baidu Cookie（若未在环境变量中配置）</label>
+            <input
+              id="cookie"
+              name="cookie"
+              type="text"
+              placeholder="BDUSS=...; BAIDUID=..."
+              autocomplete="off"
+            />
+            <p class="help-text">
+              需先登录
+              <a href="https://index.baidu.com/" target="_blank" rel="noreferrer">百度指数</a>
+              ，在浏览器控制台中复制请求 Cookie。
+            </p>
+          </div>
+          <div class="form-row buttons">
+            <button type="submit" class="primary">开始抓取</button>
+            <button type="reset" class="secondary">重置</button>
+          </div>
+          <p id="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel results">
+        <h2>数据预览</h2>
+        <div class="chart-wrapper">
+          <canvas id="daily-chart" aria-label="指数趋势图" role="img"></canvas>
+        </div>
+        <details class="table-wrapper" open>
+          <summary>日度数据表</summary>
+          <table id="daily-table">
+            <thead>
+              <tr>
+                <th>类型</th>
+                <th>关键词</th>
+                <th>城市</th>
+                <th>日期</th>
+                <th>指数值</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </details>
+        <details class="table-wrapper">
+          <summary>年度汇总</summary>
+          <table id="annual-table">
+            <thead>
+              <tr>
+                <th>类型</th>
+                <th>关键词</th>
+                <th>城市</th>
+                <th>年份</th>
+                <th>平均值</th>
+                <th>总量</th>
+                <th>有效天数</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </details>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <p>提示：接口需要有效的 Baidu Cookie，且仅用于合法合规的数据分析。</p>
+    </footer>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

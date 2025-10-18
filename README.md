@@ -1,90 +1,71 @@
-# Welcome to GitHub
+# 百度指数采集与年度可视化面板
 
-Welcome to GitHub—where millions of developers work together on software. Ready to get started? Let’s learn how this all works by building and publishing your first GitHub Pages website!
+这是一个用于抓取百度搜索指数与百度资讯指数日度数据，并按年汇总后可视化展示的全栈项目。项目包含：
 
-## Repositories
+- **FastAPI** 后端：封装了百度指数接口的抓取逻辑，支持关键词、城市及时间区间的定制，并自动生成年度聚合数据。
+- **前端可视化面板**：通过交互式表单配置参数，查看抓取进度、日度数据表格、年度统计表格以及趋势折线图。
 
-Right now, we’re in your first GitHub **repository**. A repository is like a folder or storage space for your project. Your project's repository contains all its files such as code, documentation, images, and more. It also tracks every change that you—or your collaborators—make to each file, so you can always go back to previous versions of your project if you make any mistakes.
+> ⚠️ **使用须知**：百度指数接口需要已登录账号的 Cookie 才能访问。请务必遵循百度使用条款，仅将本工具用于合法、合规的数据分析。
 
-This repository contains three important files: The HTML code for your first website on GitHub, the CSS stylesheet that decorates your website with colors and fonts, and the **README** file. It also contains an image folder, with one image file.
+## 快速开始
 
-## Describe your project
+### 1. 安装依赖
 
-You are currently viewing your project's **README** file. **_README_** files are like cover pages or elevator pitches for your project. They are written in plain text or [Markdown language](https://guides.github.com/features/mastering-markdown/), and usually include a paragraph describing the project, directions on how to use it, who authored it, and more.
-
-[Learn more about READMEs](https://help.github.com/en/articles/about-readmes)
-
-## Your first website
-
-**GitHub Pages** is a free and easy way to create a website using the code that lives in your GitHub repositories. You can use GitHub Pages to build a portfolio of your work, create a personal website, or share a fun project that you coded with the world. GitHub Pages is automatically enabled in this repository, but when you create new repositories in the future, the steps to launch a GitHub Pages website will be slightly different.
-
-[Learn more about GitHub Pages](https://pages.github.com/)
-
-## Rename this repository to publish your site
-
-We've already set-up a GitHub Pages website for you, based on your personal username. This repository is called `hello-world`, but you'll rename it to: `username.github.io`, to match your website's URL address. If the first part of the repository doesn’t exactly match your username, it won’t work, so make sure to get it right.
-
-Let's get started! To update this repository’s name, click the `Settings` tab on this page. This will take you to your repository’s settings page. 
-
-![repo-settings-image](https://user-images.githubusercontent.com/18093541/63130482-99e6ad80-bf88-11e9-99a1-d3cf1660b47e.png)
-
-Under the **Repository Name** heading, type: `username.github.io`, where username is your username on GitHub. Then click **Rename**—and that’s it. When you’re done, click your repository name or browser’s back button to return to this page.
-
-<img width="1039" alt="rename_screenshot" src="https://user-images.githubusercontent.com/18093541/63129466-956cc580-bf85-11e9-92d8-b028dd483fa5.png">
-
-Once you click **Rename**, your website will automatically be published at: https://your-username.github.io/. The HTML file—called `index.html`—is rendered as the home page and you'll be making changes to this file in the next step.
-
-Congratulations! You just launched your first GitHub Pages website. It's now live to share with the entire world
-
-## Making your first edit
-
-When you make any change to any file in your project, you’re making a **commit**. If you fix a typo, update a filename, or edit your code, you can add it to GitHub as a commit. Your commits represent your project’s entire history—and they’re all saved in your project’s repository.
-
-With each commit, you have the opportunity to write a **commit message**, a short, meaningful comment describing the change you’re making to a file. So you always know exactly what changed, no matter when you return to a commit.
-
-## Practice: Customize your first GitHub website by writing HTML code
-
-Want to edit the site you just published? Let’s practice commits by introducing yourself in your `index.html` file. Don’t worry about getting it right the first time—you can always build on your introduction later.
-
-Let’s start with this template:
-
-```
-<p>Hello World! I’m [username]. This is my website!</p>
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows 下请使用 .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-To add your introduction, copy our template and click the edit pencil icon at the top right hand corner of the `index.html` file.
+### 2. 配置 Cookie
 
-<img width="997" alt="edit-this-file" src="https://user-images.githubusercontent.com/18093541/63131820-0794d880-bf8d-11e9-8b3d-c096355e9389.png">
+- 推荐做法是在终端中设置环境变量：
 
+  ```bash
+  export BAIDU_COOKIE="BDUSS=...; BAIDUID=...; ..."
+  ```
 
-Delete this placeholder line:
+- 或者在前端页面的「Baidu Cookie」输入框中临时填写；该字段优先级高于环境变量。
+- Cookie 获取方式：登录 [百度指数](https://index.baidu.com/)，打开开发者工具，复制任何请求头中的 `Cookie` 值。
+
+### 3. 启动服务
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+启动后访问 <http://127.0.0.1:8000/> 即可打开前端面板。
+
+## 使用说明
+
+1. **关键词与城市**：每行一个关键字或城市名；城市亦可填写百度地区编码。默认的城市映射表可在 `app/data/cities.json` 中维护。
+2. **时间范围**：支持任意连续的日度区间，系统会自动补齐每日数据并在年度视图中聚合平均值、总量及有效天数。
+3. **指数类型**：目前支持搜索指数 (`search`) 与资讯指数 (`news`)，可多选。
+4. **数据预览**：抓取完成后，可在页面下方查看日度表格、年度表格以及趋势折线图。
+5. **异常处理**：若出现 Cookie 失效或频率限制，会在状态栏中提示具体错误信息。
+
+## 项目结构
 
 ```
-<p>Welcome to your first GitHub Pages website!</p>
+app/
+├── data/               # 城市与地区编码映射
+├── main.py             # FastAPI 入口，静态资源挂载
+├── models/             # Pydantic 请求/响应模型
+├── services/           # 百度指数抓取逻辑及异常定义
+└── utils/              # 年度数据聚合工具
+frontend/
+├── index.html          # 可视化面板页面
+├── styles.css          # 页面样式
+└── app.js              # 表单交互与图表渲染
+requirements.txt        # Python 依赖
 ```
 
-Then, paste the template to line 15 and fill in the blanks.
+## 常见问题
 
-<img width="1032" alt="edit-githuboctocat-index" src="https://user-images.githubusercontent.com/18093541/63132339-c3a2d300-bf8e-11e9-8222-59c2702f6c42.png">
+- **城市名称无法识别**：请确认名称是否与 `cities.json` 保持一致，或直接填写百度指数地区编码。
+- **返回数据缺失**：百度指数可能对部分关键词/城市组合返回空值，页面会以 `-` 展示并在年度统计中忽略该日。
+- **请求失败或状态 502**：大部分情况下是 Cookie 过期或账户未登录，请重新获取 Cookie 并再次尝试。
 
+## 许可
 
-When you’re done, scroll down to the `Commit changes` section near the bottom of the edit page. Add a short message explaining your change, like "Add my introduction", then click `Commit changes`.
-
-
-<img width="1030" alt="add-my-username" src="https://user-images.githubusercontent.com/18093541/63131801-efbd5480-bf8c-11e9-9806-89273f027d16.png">
-
-Once you click `Commit changes`, your changes will automatically be published on your GitHub Pages website. Refresh the page to see your new changes live in action.
-
-:tada: You just made your first commit! :tada:
-
-## Extra Credit: Keep on building!
-
-Change the placeholder Octocat gif on your GitHub Pages website by [creating your own personal Octocat emoji](https://myoctocat.com/build-your-octocat/) or [choose a different Octocat gif from our logo library here](https://octodex.github.com/). Add that image to line 12 of your `index.html` file, in place of the `<img src=` link.
-
-Want to add even more code and fun styles to your GitHub Pages website? [Follow these instructions](https://github.com/github/personal-website) to build a fully-fledged static website.
-
-![octocat](./images/create-octocat.png)
-
-## Everything you need to know about GitHub
-
-Getting started is the hardest part. If there’s anything you’d like to know as you get started with GitHub, try searching [GitHub Help](https://help.github.com). Our documentation has tutorials on everything from changing your repository settings to configuring GitHub from your command line.
+本项目以教育与研究为目的提供示例代码，请在遵守目标网站使用协议及相关法律法规的前提下使用。
