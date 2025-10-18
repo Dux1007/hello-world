@@ -9,15 +9,34 @@
 
 ## 快速开始
 
-### 1. 安装依赖
+### 方法一：零基础一键启动（推荐）
+
+1. 安装 [Python 3.10+](https://www.python.org/downloads/)（Windows 用户在安装时请勾选“Add python.exe to PATH”）。
+2. 双击项目根目录中的 `start_app.bat`（Windows）或在终端执行：
+
+   ```bash
+   python start_app.py
+   ```
+
+3. 脚本会自动执行以下操作：
+   - 安装/更新 `requirements.txt` 中的依赖；
+   - 启动 FastAPI 后端服务；
+   - 自动在浏览器中打开 <http://127.0.0.1:8000/> 前端页面。
+
+4. 如未自动打开浏览器，请手动输入地址。
+
+### 方法二：手动部署（适用于服务器环境）
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows 下请使用 .venv\Scripts\activate
 pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. 配置 Cookie
+启动后同样访问 <http://127.0.0.1:8000/> 进入界面。
+
+### 配置 Cookie
 
 - 推荐做法是在终端中设置环境变量：
 
@@ -28,15 +47,7 @@ pip install -r requirements.txt
 - 或者在前端页面的「Baidu Cookie」输入框中临时填写；该字段优先级高于环境变量。
 - Cookie 获取方式：登录 [百度指数](https://index.baidu.com/)，打开开发者工具，复制任何请求头中的 `Cookie` 值。
 
-### 3. 启动服务
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-启动后访问 <http://127.0.0.1:8000/> 即可打开前端面板。
-
-### 4. 直接通过网页操作
+### 直接通过网页操作
 
 - 如果希望不通过服务器直接操作界面，可双击打开 `frontend/index.html`。
 - 当以本地文件方式访问时，请在页面中的「接口地址」栏填写正在运行的后端地址（默认值为 `http://127.0.0.1:8000`），否则抓取请求无法发送。
