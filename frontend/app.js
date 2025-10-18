@@ -1,5 +1,6 @@
 const form = document.getElementById("fetch-form");
 const statusEl = document.getElementById("form-status");
+const apiBaseInput = document.getElementById("api-base");
 const dailyTableBody = document.querySelector("#daily-table tbody");
 const annualTableBody = document.querySelector("#annual-table tbody");
 const chartCanvas = document.getElementById("daily-chart");
@@ -33,6 +34,17 @@ function buildPayload(formData) {
     payload.cookie = cookie.trim();
   }
   return payload;
+}
+
+function resolveApiBase(formData) {
+  const raw = (formData.get("api-base") || apiBaseInput?.value || "").trim();
+  if (raw.length) {
+    return raw.replace(/\/$/, "");
+  }
+  if (window.location.protocol === "file:") {
+    return "http://127.0.0.1:8000";
+  }
+  return window.location.origin.replace(/\/$/, "");
 }
 
 function formatNumber(value) {
@@ -217,7 +229,8 @@ async function submitHandler(event) {
   form.querySelectorAll("button").forEach((button) => (button.disabled = true));
 
   try {
-    const response = await fetch("/api/fetch", {
+    const apiBase = resolveApiBase(formData);
+    const response = await fetch(`${apiBase}/api/fetch`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -257,6 +270,14 @@ form.addEventListener("reset", () => {
     chart.destroy();
     chart = null;
   }
+  if (apiBaseInput) {
+    window.setTimeout(() => {
+      apiBaseInput.value =
+        window.location.protocol === "file:"
+          ? "http://127.0.0.1:8000"
+          : window.location.origin.replace(/\/$/, "");
+    }, 0);
+  }
 });
 
 // 提供一些默认值，便于快速体验
@@ -267,4 +288,10 @@ form.addEventListener("reset", () => {
   const toDateInput = (value) => value.toISOString().slice(0, 10);
   document.getElementById("start-date").value = toDateInput(start);
   document.getElementById("end-date").value = toDateInput(end);
+  if (apiBaseInput) {
+    apiBaseInput.value =
+      window.location.protocol === "file:"
+        ? "http://127.0.0.1:8000"
+        : window.location.origin.replace(/\/$/, "");
+  }
 })();

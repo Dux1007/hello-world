@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>百度指数采集面板</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
   </head>
@@ -59,6 +59,19 @@
               ，在浏览器控制台中复制请求 Cookie。
             </p>
           </div>
+          <div class="form-row">
+            <label for="api-base">接口地址（可选）</label>
+            <input
+              id="api-base"
+              name="api-base"
+              type="url"
+              inputmode="url"
+              placeholder="http://127.0.0.1:8000"
+            />
+            <p class="help-text">
+              如果直接打开本地 HTML，请确保后端在此地址运行；留空则默认使用当前网页来源。
+            </p>
+          </div>
           <div class="form-row buttons">
             <button type="submit" class="primary">开始抓取</button>
             <button type="reset" class="secondary">重置</button>
@@ -111,6 +124,6 @@
       <p>提示：接口需要有效的 Baidu Cookie，且仅用于合法合规的数据分析。</p>
     </footer>
 
-    <script src="/app.js" type="module"></script>
+    <script src="./app.js" type="module"></script>
   </body>
 </html>
